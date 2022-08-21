@@ -8,4 +8,7 @@ pub struct SolarData {
     pub power_generation: usize,
     pub temperature: f32,
     pub voltage: f32,
+    pub power_generation_v7: f32,
+    pub power_generation_v8: f32,
+    pub power_generation_v9: f32,
 }

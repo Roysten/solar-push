@@ -39,19 +39,12 @@ WHERE
 #[derive(Debug)]
 enum AppError {
     Curl(curl::Error),
-    CurlForm(curl::FormError),
     Sqlite(rusqlite::Error),
 }
 
 impl From<curl::Error> for AppError {
     fn from(e: curl::Error) -> Self {
         Self::Curl(e)
-    }
-}
-
-impl From<curl::FormError> for AppError {
-    fn from(e: curl::FormError) -> Self {
-        Self::CurlForm(e)
     }
 }
 
@@ -88,6 +81,9 @@ fn build_post_data(samples: &Vec<SolarData>) -> String {
             "-1",
             &sample.temperature.to_string(),
             &sample.voltage.to_string(),
+            &sample.power_generation.to_string(),
+            &sample.power_generation.to_string(),
+            &sample.power_generation.to_string(),
         ]
         .join(",");
         data_string += &(sample_data_string + ";");
@@ -104,15 +100,20 @@ fn send_request(easy: &mut Easy, samples: &Vec<SolarData>, system_id: &str) -> R
     headers.append(&format!("X-Pvoutput-SystemId: {}", system_id))?;
     headers.append(&format!(
         "X-Pvoutput-Apikey: {}",
-        include_str!("../apikey.txt")
+        include_str!("../apikey.txt").trim()
     ))?;
     easy.http_headers(headers)?;
     /*easy.write_function(|x| {
         Ok(std::io::stdout().write(x).unwrap())
     });*/
     easy.perform()?;
-    println!("HTTP {}", easy.response_code()?);
-    Ok(())
+    if easy.response_code()? > 299 {
+        println!("HTTP {}", easy.response_code()?);
+        Err(curl::Error::new(0).into())
+    } else {
+        println!("HTTP {}", easy.response_code()?);
+        Ok(())
+    }
 }
 
 fn get_samples(db: &Connection, tracker: &Tracker) -> Result<Vec<SolarData>, AppError> {
@@ -128,6 +129,9 @@ fn get_samples(db: &Connection, tracker: &Tracker) -> Result<Vec<SolarData>, App
                 power_generation: row.get(5)?,
                 temperature: row.get(6)?,
                 voltage: row.get(7)?,
+                power_generation_v7: row.get(5)?,
+                power_generation_v8: row.get(5)?,
+                power_generation_v9: row.get(5)?,
             })
         })?
         .map(|x| x.unwrap())
